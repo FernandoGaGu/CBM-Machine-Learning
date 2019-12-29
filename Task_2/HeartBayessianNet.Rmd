@@ -1,0 +1,1015 @@
+---
+title: "LastBayessianNet"
+output: html_document
+---
+
+```{r, message=FALSE}
+library(bnlearn)
+library(gRain)
+source('functions.R')
+data <- read.table("heart.csv", sep = ",", header = T)
+names <- names(data)
+names[1] <- c("age")
+colnames(data) <- names
+```
+
+```{r}
+data$sex[data$sex == 0] = "female"          
+data$sex[data$sex == 1] = "male"                      
+
+data$age[data$age < 60] = "young"  
+data$age[data$age >= 60 &  data$age != "young"] = "old"  
+
+data$chol[data$chol <= 220] = "normal"
+data$chol[data$chol > 220 & data$chol <= 300 & data$chol != "normal"] = "high"
+data$chol[data$chol > 300 & data$chol != "normal" & data$chol != "high"] = "very.high"
+
+data$trestbps[data$trestbps <= 130] = "less.than.130"          
+data$trestbps[data$trestbps > 130 & data$trestbps != "less.than.130"] = "more.than.130"           
+
+data$thalach[data$thalach <= 120] = "less.than.120.bpm"           
+data$thalach[data$thalach > 120 & data$thalach != "less.than.120.bpm"] = "more.than.120.bpm"            
+
+data$oldpeak[data$oldpeak <= 0.1] = "less.than.0.1.mV"           
+data$oldpeak[data$oldpeak > 0.1 & data$oldpeak <= 0.75 & data$oldpeak != "less.than.0.1.mV" ] = "0.1..0.75.mV"           
+data$oldpeak[data$oldpeak > 0.75 & data$oldpeak != "less.than.0.1.mV" & data$oldpeak != "0.1..0.75.mV" ] = "more.than.0.75.mV"            
+ 
+data$cp[data$cp == 0 ] = "no.chest.pain"                      
+data$cp[data$cp == 3 ] = "no.chest.pain"                    
+data$cp[data$cp == 1 ] = "chest.pain"                     
+data$cp[data$cp == 2 ] = "chest.pain"                     
+
+data$fbs[data$fbs == 0] = "normal"                    
+data$fbs[data$fbs == 1] = "high"                    
+
+data$exang[data$exang == 0] = "no.angina"                      
+data$exang[data$exang == 1] = "angina"                      
+
+data$slope[data$slope == 0] = "upsloping"                
+data$slope[data$slope == 1] = "flat"                                
+data$slope[data$slope == 2] = "downsloping"                                   
+
+data$target[data$target == 1] = 3
+data$target[data$target == 0] = "disease"               
+data$target[data$target == 3] = "not.disease"               
+
+data$ca <- NULL  
+data$thal <- NULL 
+data$restecg <- NULL
+summary(data)
+```
+```{r}
+data[] <- lapply(data, as.factor)
+```
+
+
+```{r}
+set.seed(0)
+bl.tabu.1 <- tabu(data, score = "bic", tabu = 20, max.tabu = 20, max.iter = 1000000)
+
+set.seed(0)
+bl.tabu.2 <- tabu(data, score = "k2", tabu = 20, max.tabu = 20, max.iter = 1000000)
+
+set.seed(0)
+bl.tabu.3 <- tabu(data, score = "aic", tabu = 20, max.tabu = 20, max.iter = 1000000)
+
+set.seed(0)
+bl.tabu.4 <- tabu(data, score = "loglik", tabu = 20, max.tabu = 20, max.iter = 1000000)
+
+set.seed(0)
+bl.hc.1 <- hc(data, score = "bic", max.iter = 1000000, restart = 20)
+
+set.seed(0)
+bl.hc.2 <- hc(data, score = "k2", max.iter = 1000000, restart = 20)
+
+set.seed(0)
+bl.hc.3 <- hc(data, score = "aic", max.iter = 1000000, restart = 20)
+
+set.seed(0)
+bl.hc.4 <- hc(data, score = "loglik", max.iter = 1000000, restart = 20)
+
+```
+
+## Análisis de las redes obtenidas
+
+```{r}
+score(bl.tabu.1, data, type = "bic")   
+score(bl.tabu.2, data, type = "bic") 
+score(bl.tabu.3, data, type = "bic") 
+score(bl.tabu.4, data, type = "bic")
+
+score(bl.hc.1, data, type = "bic")    
+score(bl.hc.2, data, type = "bic") 
+score(bl.hc.3, data, type = "bic") 
+score(bl.hc.4, data, type = "bic") 
+```
+
+## Búsqueda Tabu
+
+```{r}
+plot(bl.tabu.1)
+```
+
+```{r}
+plot(bl.tabu.2)
+```
+
+```{r}
+plot(bl.tabu.3)
+```
+
+```{r}
+plot(bl.tabu.4)
+```
+
+# Búsqueda *hill-climbing*
+
+```{r}
+plot(bl.hc.1)
+```
+
+```{r}
+plot(bl.hc.2)
+```
+
+```{r}
+plot(bl.hc.3)
+```
+
+```{r}
+plot(bl.hc.4)
+```
+
+
+
+### Analisis de la evolución del score de los algoritmos en combinación con las diferentes métricas.
+
+```{r}
+set.seed(0)
+score.tabu.1 = c()
+for(n in seq(from = 1, to = 100, by = 1)){
+  net <- tabu(data, score = "bic", tabu = 20, max.tabu = 20, max.iter = n)
+  score.tabu.1 <- c(score.tabu.1, score(net, data, type = "bic") )
+}
+
+set.seed(0)
+score.tabu.2 = c()
+for(n in seq(from = 1, to = 100, by = 1)){
+  net <- tabu(data, score = "aic", tabu = 20, max.tabu = 20, max.iter = n)
+  score.tabu.2 <- c(score.tabu.2, score(net, data, type = "aic") )
+}
+set.seed(0)
+score.tabu.3 = c()
+for(n in seq(from = 1, to = 100, by = 1)){
+  net <- tabu(data, score = "loglik", tabu = 20, max.tabu = 20, max.iter = n)
+  score.tabu.3 <- c(score.tabu.3, score(net, data, type = "loglik") )
+}
+set.seed(0)
+score.tabu.4 = c()
+for(n in seq(from = 1, to = 100, by = 1)){
+  net <- tabu(data, score = "k2", tabu = 20, max.tabu = 20, max.iter = n)
+  score.tabu.4 <- c(score.tabu.4, score(net, data, type = "k2") )
+}
+
+set.seed(0)
+score.hc.1 = c()
+for(n in seq(from = 1, to = 100, by = 1)){
+  net <- hc(data, score = "bic", max.iter = n, restart = 20)
+  score.hc.1 <- c(score.hc.1, score(net, data, type = "bic") )
+}
+set.seed(0)
+score.hc.2 = c()
+for(n in seq(from = 1, to = 100, by = 1)){
+  net <- hc(data, score = "aic", max.iter = n, restart = 20)
+  score.hc.2 <- c(score.hc.2, score(net, data, type = "aic") )
+}
+
+set.seed(0)
+score.hc.3 = c()
+for(n in seq(from = 1, to = 100, by = 1)){
+  net <- hc(data, score = "loglik", max.iter = n, restart = 20)
+  score.hc.3 <- c(score.hc.3, score(net, data, type = "loglik") )
+}
+set.seed(0)
+score.hc.4 = c()
+for(n in seq(from = 1, to = 100, by = 1)){
+  net <- hc(data, score = "k2", max.iter = n, restart = 20)
+  score.hc.4 <- c(score.hc.4, score(net, data, type = "k2") )
+}
+
+```
+
+```{r}
+plot(score.tabu.1, main = "Tabu search + BIC", ylab = "BIC score", xlab = "Iteration", type = "o", col = "black")
+```
+
+```{r}
+plot(score.tabu.2, main = "Tabu search + AIC", ylab = "AIC score", xlab = "Iteration", type = "o", col = "black")
+```
+
+```{r}
+plot(score.tabu.3, main = "Tabu search + LOGLIK", ylab = "LOGLIK score", xlab = "Iteration", type = "o", col = "black")
+```
+
+```{r}
+plot(score.tabu.4, main = "Tabu search + K2", ylab = "K2 score", xlab = "Iteration", type = "o", col = "black")
+```
+
+
+```{r}
+plot(score.hc.1, main = "Hill-Climbing + BIC", ylab = "BIC score", xlab = "Iteration",type = "o", col = "black")
+```
+
+```{r}
+plot(score.hc.2, main = "Hill-Climbing + AIC", ylab = "AIC score", xlab = "Iteration",type = "o", col = "black")
+```
+
+```{r}
+plot(score.hc.3, main = "LOGLIK score in Hill-Climbing search", ylab = "LOGLK score", xlab = "Iteration",type = "o", col = "black")
+```
+```{r}
+plot(score.hc.4, main = "K2 score in Hill-Climbing search", ylab = "K2 score", xlab = "Iteration",type = "o", col = "black")
+
+```
+
+
+
+
+## Ajuste de las mejores redes
+
+```{r}
+bl.tabu.1 <- reverse.arc(bl.tabu.1, "cp", "target")
+bl.tabu.1 <- reverse.arc(bl.tabu.1, "age", "oldpeak")
+bl.tabu.1 <- drop.arc(bl.tabu.1, "age", "sex")
+bl.tabu.1 <- reverse.arc(bl.tabu.1, "target", "sex")
+
+bl.tabu.3 <- drop.arc(bl.tabu.3, "age", "sex")
+bl.tabu.3 <- reverse.arc(bl.tabu.3, "age", "oldpeak")
+bl.tabu.3 <- reverse.arc(bl.tabu.3, "fbs", "trestbps")
+
+bl.hc.3 <- drop.arc(bl.hc.3, "age", "sex")
+bl.hc.3 <- reverse.arc(bl.hc.3, "fbs", "trestbps")
+bl.hc.3 <- reverse.arc(bl.hc.3, "age", "oldpeak")
+bl.hc.3 <- reverse.arc(bl.hc.3, "cp", "oldpeak")
+bl.hc.3 <- reverse.arc(bl.hc.3, "sex", "slope")
+bl.hc.3 <- reverse.arc(bl.hc.3, "sex", "target")
+```
+
+```{r}
+plot(bl.tabu.1, highlight = list(nodes = "target"))
+```
+
+```{r}
+plot(bl.tabu.3, highlight = list(nodes = "target"))
+```
+
+```{r}
+plot(bl.hc.3, highlight = list(nodes = "target"))
+```
+
+Comparación de la estructura de las redes usando la distancia de Hamming.
+```{r}
+bnlearn::hamming(bl.tabu.3, bl.tabu.1)
+bnlearn::hamming(bl.hc.3, bl.tabu.1)
+bnlearn::hamming(bl.tabu.3, bl.hc.3)
+```
+
+```{r}
+graphviz.compare(bl.tabu.3, bl.tabu.1)
+```
+
+```{r}
+graphviz.compare(bl.hc.3, bl.tabu.1)
+```
+
+```{r}
+graphviz.compare(bl.tabu.3, bl.hc.3)
+```
+
+# Redes creadas mediante **bnstruct** y el estudio de la independencia.
+
+Después de la obtención de las primeras redes se ajustaron en base relaciones lógicas.
+
+**Red desarrollada en base a un algoritmo completo (Silander-Myllymaki) que usa como *score* el *Bayesian Information Criterium*.**
+```{r}
+description.1 <- paste('[fbs|sex]',
+                       '[chol|sex]',
+                       '[sex]',
+                       '[trestbps|fbs:sex:age]',
+                       '[age]',
+                       '[thalach|age:target:exang]',
+                       '[exang|age:target:oldpeak]',
+                       '[oldpeak|target:trestbps]',
+                       '[cp|target]',
+                       '[slope|trestbps:target]',
+                       '[target|age]',
+                        sep = '')
+
+bl.expert.1 <- model2network(description.1)
+plot(bl.expert.1, highlight = list(nodes = "target"))
+```
+
+
+**Red desarrollada en base al estudio de la independencia.**
+```{r}
+description.2 <- paste('[age][sex][fbs][thalach]',
+                       '[trestbps|fbs]',
+                       '[slope|age:trestbps:target]',
+                       '[oldpeak|target:slope]',
+                       '[chol|age]',
+                       '[exang|target:oldpeak:cp]',
+                       '[target|chol:sex:fbs]',
+                       '[cp|target:age:fbs]', sep = '')
+bl.expert.2 <- model2network(description.2)
+plot(bl.expert.2, highlight = list(nodes = "target"))
+```
+
+
+Los *scores* obtenidos mediante el criterio de información Bayesiana aumentarón tras la re-estructuración de las redes.
+```{r}
+score(bl.tabu.1, data, type = "bic")
+score(bl.tabu.3, data, type = "bic")
+score(bl.hc.3, data, type = "bic")
+score(bl.expert.1,data, type = "bic")
+score(bl.expert.2,data, type = "bic")
+```
+Número de conexioens entre cada vez.
+```{r}
+length(arcs(bl.tabu.1))
+length(arcs(bl.tabu.3))
+length(arcs(bl.hc.3))
+length(arcs(bl.expert.1))
+length(arcs(bl.expert.2))
+```
+
+## Ajuste de parámetros de las redes 
+
+Ajustamos los parámetros de la red mediante el método de Bayes.
+```{r}
+bl.tabu.1.fit <- bn.fit(bl.tabu.1, data, method = "bayes")
+bl.tabu.3.fit <- bn.fit(bl.tabu.3, data, method = "bayes")
+bl.hc.3.fit <- bn.fit(bl.hc.3, data, method = "bayes")
+bl.expert.1.fit <- bn.fit(bl.expert.1, data, method = "bayes")
+bl.expert.2.fit <- bn.fit(bl.expert.2, data, method = "bayes")
+```
+
+## Inferencia aproximada mediante *logistic sample*
+
+A continuación se va a comparar el rendimiento de las diferentes redes frente a diferentes situaciones.
+
+* **Daño cardiaco** en función de la **dolor de pecho y angina**: Son resultados interesantes, no tiene porque haber daño cardiaco a partir de estas observaciones.
+```{r, fig.align="center",fig.width=10}
+library(ggplot2)
+set.seed(0)
+prob.1 <- cpquery(bl.tabu.1.fit, event = (target == "disease"), evidence = (exang == "angina"  & cp == "chest.pain"), method = "ls", n = 1000000)
+
+prob.2 <- cpquery(bl.tabu.3.fit, event = (target == "disease"), evidence = (exang == "angina"  & cp == "chest.pain"), method = "ls", n = 1000000)
+
+prob.3 <- cpquery(bl.hc.3.fit, event = (target == "disease"), evidence = (exang == "angina"  & cp == "chest.pain"), method = "ls", n = 1000000)
+
+prob.4 <- cpquery(bl.expert.1.fit, event = (target == "disease"), evidence = (exang == "angina"  & cp == "chest.pain"), method = "ls", n = 1000000)
+
+prob.5 <- cpquery(bl.expert.2.fit, event = (target == "disease"), evidence = (exang == "angina"  & cp == "chest.pain"), method = "ls", n = 1000000)
+
+network <- c("TBIC", "TAIC", "HAIC", "IND", "SM")
+probability <- c(prob.1, prob.2, prob.3, prob.4, prob.5)
+probability <- sapply(probability, round,3) 
+
+df <- data.frame(network, probability)
+
+g <- ggplot(df, aes(network, probability, fill = network))
+g + geom_bar(stat="identity", width = 0.5) + 
+      labs(title="Bayessian networks", 
+           subtitle="Probability of heart damage with angina and chest pain") + 
+      geom_text(aes(label = probability), size = 5, vjust = -1) +
+  ylim(0, 1)+ theme_minimal()
+```
+
+* Si añadimos historial clinico sobre **colesterol e hipertensión**: Los resultados de las dos segundas redes son bastante interesantes ya que implica que seguramente haya daño cardiaco cuando tenemos tensión elevada y colesterol muy alto.
+```{r, fig.width=10} 
+set.seed(0)
+prob.1 <- cpquery(bl.tabu.1.fit, event = (target == "disease"),  evidence = (exang == "angina"  & cp == "chest.pain" & chol == "very.high" & trestbps == "more.than.130"), method = "ls", n = 1000000)
+
+prob.2 <- cpquery(bl.tabu.3.fit, event = (target == "disease"), evidence = (exang == "angina"  & cp == "chest.pain" & chol == "very.high" & trestbps == "more.than.130"), method = "ls", n = 1000000)
+
+prob.3 <- cpquery(bl.hc.3.fit, event = (target == "disease"), evidence = (exang == "angina"  & cp == "chest.pain" & chol == "very.high" & trestbps == "more.than.130"), method = "ls", n = 1000000)
+
+prob.4 <- cpquery(bl.expert.1.fit, event = (target == "disease"),  evidence = (exang == "angina"  & cp == "chest.pain" & chol == "very.high" & trestbps == "more.than.130"), method = "ls", n = 1000000)
+
+prob.5 <- cpquery(bl.expert.2.fit, event = (target == "disease"), evidence = (exang == "angina"  & cp == "chest.pain" & chol == "very.high" & trestbps == "more.than.130"), method = "ls", n = 1000000)
+
+network <- c("TBIC", "TAIC", "HAIC", "IND", "SM")
+probability <- c(prob.1, prob.2, prob.3, prob.4, prob.5)
+probability <- sapply(probability, round,3) 
+
+df <- data.frame(network, probability)
+
+g <- ggplot(df, aes(network, probability, fill = network))
+g + geom_bar(stat="identity", width = 0.5) + 
+      labs(title="Bayessian networks", 
+           subtitle="Probability of heart damage with angina, chest pain, hypertension and high cholesterol (> 300 mg/dL) ") + 
+      geom_text(aes(label = probability), size = 5,  vjust = -1) +
+  ylim(0, 1)+ theme_minimal()
+```
+
+* Si disminuimos los niveles de colesterol se puede ver que la probabildiad disminuye de forma considerable lo que resulta lógico.
+```{r, fig.width=10} 
+set.seed(0)
+prob.1 <-cpquery(bl.tabu.1.fit, event = (target == "disease"),  evidence = (exang == "angina"  & cp == "chest.pain" & chol == "high" & trestbps == "more.than.130"),method = "ls", n = 1000000)
+
+prob.2 <-cpquery(bl.tabu.3.fit, event = (target == "disease"), evidence = (exang == "angina"  & cp == "chest.pain" & chol == "high" & trestbps == "more.than.130"),method = "ls", n = 1000000)
+
+prob.3 <-cpquery(bl.hc.3.fit, event = (target == "disease"), evidence = (exang == "angina"  & cp == "chest.pain" & chol == "high" & trestbps == "more.than.130"),method = "ls", n = 1000000)
+
+prob.4 <-cpquery(bl.expert.1.fit, event = (target == "disease"),  evidence = (exang == "angina"  & cp == "chest.pain" & chol == "high" & trestbps == "more.than.130"),method = "ls", n = 1000000)
+
+prob.5 <-cpquery(bl.expert.2.fit, event = (target == "disease"), evidence = (exang == "angina"  & cp == "chest.pain" & chol == "high" & trestbps == "more.than.130"),method = "ls", n = 1000000)
+
+network <- c("TBIC", "TAIC", "HAIC", "IND", "SM")
+probability <- c(prob.1, prob.2, prob.3, prob.4, prob.5)
+probability <- sapply(probability, round,3) 
+
+df <- data.frame(network, probability)
+
+g <- ggplot(df, aes(network, probability, fill = network))
+g + geom_bar(stat="identity", width = 0.5) + 
+      labs(title="Bayessian networks", 
+           subtitle="Probability of heart damage with angina, chest pain, hypertension and normal cholesterol (220 - 300 mg/dL)") + 
+    geom_text(aes(label = probability), size = 5,  vjust = -1) +
+    ylim(0, 1)+ theme_minimal()
+```
+
+
+```{r, fig.width=10} 
+set.seed(0)
+prob.1 <-cpquery(bl.tabu.1.fit, event = (target == "disease"),  evidence = (exang == "angina"  & cp == "chest.pain" & chol == "normal" & trestbps == "more.than.130"),method = "ls", n = 1000000)
+
+prob.2 <-cpquery(bl.tabu.3.fit, event = (target == "disease"), evidence = (exang == "angina"  & cp == "chest.pain" & chol == "normal" & trestbps == "more.than.130"),method = "ls", n = 1000000)
+
+prob.3 <-cpquery(bl.hc.3.fit, event = (target == "disease"), evidence = (exang == "angina"  & cp == "chest.pain" & chol == "normal" & trestbps == "more.than.130"),method = "ls", n = 1000000)
+
+prob.4 <-cpquery(bl.expert.1.fit, event = (target == "disease"),  evidence = (exang == "angina"  & cp == "chest.pain" & chol == "normal" & trestbps == "more.than.130"),method = "ls", n = 1000000)
+
+prob.5 <-cpquery(bl.expert.2.fit, event = (target == "disease"), evidence = (exang == "angina"  & cp == "chest.pain" & chol == "normal" & trestbps == "more.than.130"),method = "ls", n = 1000000)
+
+network <- c("TBIC", "TAIC", "HAIC", "IND", "SM")
+probability <- c(prob.1, prob.2, prob.3, prob.4, prob.5)
+probability <- sapply(probability, round,3) 
+
+df <- data.frame(network, probability)
+
+g <- ggplot(df, aes(network, probability, fill = network))
+g + geom_bar(stat="identity", width = 0.5) + 
+      labs(title="Bayessian networks", 
+           subtitle="Probability of heart damage with angina, chest pain, hypertension and normal cholesterol (< 220 mg/dL)") + 
+    geom_text(aes(label = probability), size = 5,  vjust = -1) +
+    ylim(0, 1)+ theme_minimal()
+```
+
+En general se puede apreciar que las redes TAIC y HAIC esta fuertemente influenciada por los niveles de colesterol. La red 2 parece adaptarse mejor a la realidad.
+
+* **Daño cardiaco** en función de las alteraciones en el electrocardiograma:
+```{r, fig.width=10}
+set.seed(0)
+prob.1 <- cpquery(bl.tabu.1.fit, event = (target == "disease"),  evidence = (oldpeak == "less.than.0.1.mV"  & slope == "upsloping" ),method = "ls", n = 1000000)
+
+prob.2 <- cpquery(bl.tabu.3.fit, event = (target == "disease"), evidence = (oldpeak == "less.than.0.1.mV"  & slope == "upsloping" ),method = "ls", n = 1000000)
+
+prob.3 <- cpquery(bl.hc.3.fit, event = (target == "disease"), evidence = (oldpeak == "less.than.0.1.mV"  & slope == "upsloping" ),method = "ls", n = 1000000)
+
+prob.4 <- cpquery(bl.expert.1.fit, event = (target == "disease"),  evidence = (oldpeak == "less.than.0.1.mV"  & slope == "upsloping" ),method = "ls", n = 1000000)
+
+prob.5 <- cpquery(bl.expert.2.fit, event = (target == "disease"), evidence = (oldpeak == "less.than.0.1.mV"  & slope == "upsloping" ),method = "ls", n = 1000000)
+
+network <- c("TBIC", "TAIC", "HAIC", "IND", "SM")
+probability <- c(prob.1, prob.2, prob.3, prob.4, prob.5)
+probability <- sapply(probability, round,3) 
+
+df <- data.frame(network, probability)
+
+g <- ggplot(df, aes(network, probability, fill = network))
+g + geom_bar(stat="identity", width = 0.5) + 
+      labs(title="Bayessian networks", 
+           subtitle="Probability of heart damage based on electrocardiogram alterations (oldpeak < 0.1 mv & form upsloping)") + 
+    geom_text(aes(label = probability), size = 5,  vjust = -1) +
+    ylim(0, 1)+ theme_minimal()
+```
+
+```{r, fig.width=10}
+set.seed(0)
+prob.1 <- cpquery(bl.tabu.1.fit, event = (target == "disease"),  evidence = (oldpeak == "0.1..0.75.mV"  & slope == "upsloping" ),method = "ls", n = 1000000)
+
+prob.2 <- cpquery(bl.tabu.3.fit, event = (target == "disease"), evidence = (oldpeak == "0.1..0.75.mV"  & slope == "upsloping" ),method = "ls", n = 1000000)
+
+prob.3 <- cpquery(bl.hc.3.fit, event = (target == "disease"), evidence = (oldpeak == "0.1..0.75.mV"  & slope == "upsloping" ),method = "ls", n = 1000000)
+
+prob.4 <- cpquery(bl.expert.1.fit, event = (target == "disease"),  evidence = (oldpeak == "0.1..0.75.mV"  & slope == "upsloping" ),method = "ls", n = 1000000)
+
+prob.5 <- cpquery(bl.expert.2.fit, event = (target == "disease"), evidence = (oldpeak == "0.1..0.75.mV"  & slope == "upsloping" ),method = "ls", n = 1000000)
+
+network <- c("TBIC", "TAIC", "HAIC", "IND", "SM")
+probability <- c(prob.1, prob.2, prob.3, prob.4, prob.5)
+probability <- sapply(probability, round,3) 
+
+df <- data.frame(network, probability)
+
+g <- ggplot(df, aes(network, probability, fill = network))
+g + geom_bar(stat="identity", width = 0.5) + 
+      labs(title="Bayessian networks", 
+           subtitle="Probability of heart damage based on electrocardiogram alterations (oldpeak 0.1-0.75 mv & form upsloping)") + 
+    geom_text(aes(label = probability), size = 5,  vjust = -1) +
+    ylim(0, 1)+ theme_minimal()
+```
+
+Un valor alto del segmento ST después del ejercicio se asocia a un incremento bastante importante en la probabildiad de tener daño cardiaco en todas las redes.
+```{r, fig.width=10}
+set.seed(0)
+prob.1 <- cpquery(bl.tabu.1.fit, event = (target == "disease"),  evidence = (oldpeak == "more.than.0.75.mV"  & slope == "upsloping" ),method = "ls", n = 1000000)
+
+prob.2 <- cpquery(bl.tabu.3.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "upsloping" ),method = "ls", n = 1000000)
+
+prob.3 <- cpquery(bl.hc.3.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "upsloping" ),method = "ls", n = 1000000)
+
+prob.4 <- cpquery(bl.expert.1.fit, event = (target == "disease"),  evidence = (oldpeak == "more.than.0.75.mV"  & slope == "upsloping" ),method = "ls", n = 1000000)
+
+prob.5 <- cpquery(bl.expert.2.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "upsloping" ),method = "ls", n = 1000000)
+
+network <- c("TBIC", "TAIC", "HAIC", "IND", "SM")
+probability <- c(prob.1, prob.2, prob.3, prob.4, prob.5)
+probability <- sapply(probability, round,3) 
+
+df <- data.frame(network, probability)
+
+g <- ggplot(df, aes(network, probability, fill = network))
+g + geom_bar(stat="identity", width = 0.5) + 
+      labs(title="Bayessian networks", 
+           subtitle="Probability of heart damage based on electrocardiogram alterations (oldpeak > 0.75 mV & form upsloping)") + 
+    geom_text(aes(label = probability), size = 5,  vjust = -1) +
+    ylim(0, 1)+ theme_minimal()
+```
+
+Si repetimos lo mismo con la pendiente del segmento ST se puede ver que una pendiente plana aumenta la probabilidad de riesgo cardiaco.
+```{r, fig.width=10}
+set.seed(0)
+prob.1 <- cpquery(bl.tabu.1.fit, event = (target == "disease"),  evidence = (oldpeak == "less.than.0.1.mV"  & slope == "flat" ), method = "ls",n = 1000000)
+
+prob.2 <- cpquery(bl.tabu.3.fit, event = (target == "disease"), evidence = (oldpeak == "less.than.0.1.mV"  & slope == "flat" ),method = "ls", n = 1000000)
+
+prob.3 <- cpquery(bl.hc.3.fit, event = (target == "disease"), evidence = (oldpeak == "less.than.0.1.mV"  & slope == "flat" ),method = "ls", n = 1000000)
+
+prob.4 <- cpquery(bl.expert.1.fit, event = (target == "disease"),  evidence = (oldpeak == "less.than.0.1.mV"  & slope == "flat" ),method = "ls", n = 1000000)
+
+prob.5 <- cpquery(bl.expert.2.fit, event = (target == "disease"), evidence = (oldpeak == "less.than.0.1.mV"  & slope == "flat" ),method = "ls", n = 1000000)
+
+network <- c("TBIC", "TAIC", "HAIC", "IND", "SM")
+probability <- c(prob.1, prob.2, prob.3, prob.4, prob.5)
+probability <- sapply(probability, round,3) 
+
+df <- data.frame(network, probability)
+
+g <- ggplot(df, aes(network, probability, fill = network))
+g + geom_bar(stat="identity", width = 0.5) + 
+      labs(title="Bayessian networks", 
+           subtitle="Probability of heart damage based on electrocardiogram alterations (oldpeak < 0.1 mV & form flat)") + 
+    geom_text(aes(label = probability), size = 5,  vjust = -1) +
+    ylim(0, 1)+ theme_minimal()
+```
+
+```{r, fig.width=10, fig.align="center"}
+set.seed(0)
+prob.1 <- cpquery(bl.tabu.1.fit, event = (target == "disease"),  evidence = (oldpeak == "less.than.0.1.mV"  & slope == "downsloping" ),method = "ls", n = 1000000)
+
+prob.2 <- cpquery(bl.tabu.3.fit, event = (target == "disease"), evidence = (oldpeak == "less.than.0.1.mV"  & slope == "downsloping" ),method = "ls", n = 1000000)
+
+prob.3 <- cpquery(bl.hc.3.fit, event = (target == "disease"), evidence = (oldpeak == "less.than.0.1.mV"  & slope == "downsloping" ),method = "ls", n = 1000000)
+
+prob.4 <- cpquery(bl.expert.1.fit, event = (target == "disease"),  evidence = (oldpeak == "less.than.0.1.mV"  & slope == "downsloping" ),method = "ls", n = 1000000)
+
+prob.5 <- cpquery(bl.expert.2.fit, event = (target == "disease"), evidence = (oldpeak == "less.than.0.1.mV"  & slope == "downsloping" ),method = "ls", n = 1000000)
+
+network <- c("TBIC", "TAIC", "HAIC", "IND", "SM")
+probability <- c(prob.1, prob.2, prob.3, prob.4, prob.5)
+probability <- sapply(probability, round,3) 
+
+df <- data.frame(network, probability)
+
+g <- ggplot(df, aes(network, probability, fill = network))
+g + geom_bar(stat="identity", width = 0.5) + 
+      labs(title="Bayessian networks", 
+           subtitle="Probability of heart damage based on electrocardiogram alterations (oldpeak 0.1-0.75 mV & form downsloping)") + 
+    geom_text(aes(label = probability), size = 5,  vjust = -1) +
+    ylim(0, 1)+ theme_minimal()
+```
+
+Si combinamos un incremento en el voltaje del segmento ST con una pendiente plana tenemos la mayor probabildiad de tener daño cardiaco
+```{r, fig.width=10, fig.align="center"}
+set.seed(0)
+prob.1 <- cpquery(bl.tabu.1.fit, event = (target == "disease"),  evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" ),method = "ls", n = 1000000)
+
+prob.2 <- cpquery(bl.tabu.3.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" ),method = "ls", n = 1000000)
+
+prob.3 <- cpquery(bl.hc.3.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" ),method = "ls", n = 1000000)
+
+prob.4 <- cpquery(bl.expert.1.fit, event = (target == "disease"),  evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" ),method = "ls", n = 1000000)
+
+prob.5 <- cpquery(bl.expert.2.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" ),method = "ls", n = 1000000)
+
+network <- c("TBIC", "TAIC", "HAIC", "IND", "SM")
+probability <- c(prob.1, prob.2, prob.3, prob.4, prob.5)
+probability <- sapply(probability, round,3) 
+
+df <- data.frame(network, probability)
+
+g <- ggplot(df, aes(network, probability, fill = network))
+g + geom_bar(stat="identity", width = 0.5) + 
+      labs(title="Bayessian networks", 
+           subtitle="Probability of heart damage based on electrocardiogram alterations (oldpeak > 0.75 mV & form flat)") + 
+    geom_text(aes(label = probability), size = 5,  vjust = -1) +
+    ylim(0, 1)+ theme_minimal()
+```
+
+* Combinando las alteraciones en el electrocardigrama con los sintomas clínicos de dolor en el pecho y angina, sorprendetemente la probabildiad de tener daño cardiaco disminuye lo que parece bastante contradictorio.
+
+```{r, fig.width=10, fig.align="center"}
+set.seed(0)
+prob.1 <- cpquery(bl.tabu.1.fit, event = (target == "disease"),  evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & exang == "angina"  & cp == "chest.pain" ),method = "ls", n = 1000000)
+
+prob.2 <- cpquery(bl.tabu.3.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & exang == "angina"  & cp == "chest.pain" ),method = "ls", n = 1000000)
+
+prob.3 <- cpquery(bl.hc.3.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & exang == "angina"  & cp == "chest.pain" ),method = "ls", n = 1000000)
+
+prob.4 <- cpquery(bl.expert.1.fit, event = (target == "disease"),  evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & exang == "angina"  & cp == "chest.pain" ),method = "ls", n = 1000000)
+
+prob.5 <- cpquery(bl.expert.2.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & exang == "angina"  & cp == "chest.pain" ),method = "ls", n = 1000000)
+
+network <- c("TBIC", "TAIC", "HAIC", "IND", "SM")
+probability <- c(prob.1, prob.2, prob.3, prob.4, prob.5)
+probability <- sapply(probability, round,3) 
+
+df <- data.frame(network, probability)
+
+g <- ggplot(df, aes(network, probability, fill = network))
+g + geom_bar(stat="identity", width = 0.5) + 
+      labs(title="Bayessian networks", 
+           subtitle="Probability of heart damage based on electrocardiogram alterations (oldpeak > 0.75 mV & form flat), chest pain and angina") + 
+    geom_text(aes(label = probability), size = 5,  vjust = -1) +
+    ylim(0, 1)+ theme_minimal()
+```
+
+* Combinando las alteraciones en el electrocardigrama con **colesterol** y **que se trate de un hombre** tenemos que la probabildiad se incrementa
+```{r, fig.width=10, fig.align="center"}
+set.seed(0)
+prob.1 <- cpquery(bl.tabu.1.fit, event = (target == "disease"),  evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "male" ),method = "ls", n = 1000000)
+
+prob.2 <- cpquery(bl.tabu.3.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "male"  ),method = "ls", n = 1000000)
+
+prob.3 <- cpquery(bl.hc.3.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "male"  ),method = "ls", n = 1000000)
+
+prob.4 <- cpquery(bl.expert.1.fit, event = (target == "disease"),  evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "male" ),method = "ls", n = 1000000)
+
+prob.5 <- cpquery(bl.expert.2.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "male"  ),method = "ls", n = 1000000)
+
+network <- c("TBIC", "TAIC", "HAIC", "IND", "SM")
+probability <- c(prob.1, prob.2, prob.3, prob.4, prob.5)
+probability <- sapply(probability, round,3) 
+
+df <- data.frame(network, probability)
+
+g <- ggplot(df, aes(network, probability, fill = network))
+g + geom_bar(stat="identity", width = 0.5) + 
+      labs(title="Bayessian networks", 
+           subtitle="Probability of heart damage based on electrocardiogram alterations (oldpeak > 0.75 mV & form flat), cholesterol (>220 mg/dL) and sex male") + 
+    geom_text(aes(label = probability), size = 5,  vjust = -1) +
+    ylim(0, 1)+ theme_minimal()
+```
+
+Para una mujer el riesgo disminuye.
+```{r, fig.width=10, fig.align="center"}
+set.seed(0)
+prob.1 <- cpquery(bl.tabu.1.fit, event = (target == "disease"),  evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "female" ),method = "ls", n = 1000000)
+
+prob.2 <- cpquery(bl.tabu.3.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "female"  ),method = "ls", n = 1000000)
+
+prob.3 <- cpquery(bl.hc.3.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "female"  ),method = "ls", n = 1000000)
+
+prob.4 <- cpquery(bl.expert.1.fit, event = (target == "disease"),  evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "female" ),method = "ls", n = 1000000)
+
+prob.5 <- cpquery(bl.expert.2.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "female"  ),method = "ls", n = 1000000)
+
+network <- c("TBIC", "TAIC", "HAIC", "IND", "SM")
+probability <- c(prob.1, prob.2, prob.3, prob.4, prob.5)
+probability <- sapply(probability, round,3) 
+
+df <- data.frame(network, probability)
+
+g <- ggplot(df, aes(network, probability, fill = network))
+g + geom_bar(stat="identity", width = 0.5) + 
+      labs(title="Bayessian networks", 
+           subtitle="Probability of heart damage based on electrocardiogram alterations (oldpeak > 0.75 mV & form flat), cholesterol (>220 mg/dL) and sex female") + 
+    geom_text(aes(label = probability), size = 5,  vjust = -1) +
+    ylim(0, 1)+ theme_minimal()
+```
+
+* Incorporando a lo anterior la variable **edad**:
+```{r, fig.width=11, fig.align="center"}
+set.seed(0)
+prob.1 <- cpquery(bl.tabu.1.fit, event = (target == "disease"),  evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "male" & age == "young"),method = "ls", n = 1000000)
+
+prob.2 <- cpquery(bl.tabu.3.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "male" & age == "young" ),method = "ls", n = 1000000)
+
+prob.3 <- cpquery(bl.hc.3.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "male"  & age == "young"),method = "ls", n = 1000000)
+
+prob.4 <- cpquery(bl.expert.1.fit, event = (target == "disease"),  evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "male" & age == "young"),method = "ls", n = 1000000)
+
+prob.5 <- cpquery(bl.expert.2.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "male" & age == "young" ),method = "ls", n = 1000000)
+
+network <- c("TBIC", "TAIC", "HAIC", "IND", "SM")
+probability <- c(prob.1, prob.2, prob.3, prob.4, prob.5)
+probability <- sapply(probability, round,3) 
+
+df <- data.frame(network, probability)
+
+g <- ggplot(df, aes(network, probability, fill = network))
+g + geom_bar(stat="identity", width = 0.5) + 
+      labs(title="Bayessian networks", 
+           subtitle="Probability of heart damage based on electrocardiogram alterations (oldpeak > 0.75 mV & form flat), cholesterol (>220 mg/dL), sex male and young") + 
+    geom_text(aes(label = probability), size = 5,  vjust = -1) +
+    ylim(0, 1)+ theme_minimal()
+```
+En hombres mayores se puede ver que en la primera red aumenta de forma considerable mientras que en el resto disminuye en difernete grado, en este caso la primera red parece ser la más realista.
+```{r, fig.width=11, fig.align="center"}
+set.seed(0)
+prob.1<- cpquery(bl.tabu.1.fit, event = (target == "disease"),  evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "male" & age == "old"),method = "ls", n = 1000000)
+
+prob.2<- cpquery(bl.tabu.3.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "male" & age == "old" ),method = "ls", n = 1000000)
+
+prob.3<- cpquery(bl.hc.3.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "male"  & age == "old"),method = "ls", n = 1000000)
+
+prob.4<- cpquery(bl.expert.1.fit, event = (target == "disease"),  evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "male" & age == "old"),method = "ls", n = 1000000)
+
+prob.5<- cpquery(bl.expert.2.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "male" & age == "old" ),method = "ls", n = 1000000)
+
+network <- c("TBIC", "TAIC", "HAIC", "IND", "SM")
+probability <- c(prob.1, prob.2, prob.3, prob.4, prob.5)
+probability <- sapply(probability, round,3) 
+
+df <- data.frame(network, probability)
+
+g <- ggplot(df, aes(network, probability, fill = network))
+g + geom_bar(stat="identity", width = 0.5) + 
+      labs(title="Bayessian networks", 
+           subtitle="Heart damage based on ECG (oldpeak > 0.75 mV & slope flat), chol (>220 mg/dL) and old male") + 
+    geom_text(aes(label = probability), size = 5,  vjust = -1) +
+    ylim(0, 1)+ theme_minimal()
+```
+
+Para una mujer el riesgo parece ser independiente de la edad en algunas redes y aunque en general afecta a todas se puede ver que no tiene una fuerte influencia. La primera red de nuevo parece dar resultados más realistas.
+```{r, fig.width=11, fig.align="center"}
+set.seed(0)
+prob.1<- cpquery(bl.tabu.1.fit, event = (target == "disease"),  evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "female" & age == "young"),method = "ls", n = 1000000)
+
+prob.2<- cpquery(bl.tabu.3.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "female" & age == "young" ),method = "ls", n = 1000000)
+
+prob.3<- cpquery(bl.hc.3.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "female"  & age == "young"),method = "ls", n = 1000000)
+
+prob.4<- cpquery(bl.expert.1.fit, event = (target == "disease"),  evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "female" & age == "young"),method = "ls", n = 1000000)
+
+prob.5<- cpquery(bl.expert.2.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "female" & age == "young" ),method = "ls", n = 1000000)
+
+network <- c("TBIC", "TAIC", "HAIC", "IND", "SM")
+probability <- c(prob.1, prob.2, prob.3, prob.4, prob.5)
+probability <- sapply(probability, round,3) 
+
+df <- data.frame(network, probability)
+
+g <- ggplot(df, aes(network, probability, fill = network))
+g + geom_bar(stat="identity", width = 0.5) + 
+      labs(title="Bayessian networks", 
+           subtitle="Probability of heart damage based on electrocardiogram alterations (oldpeak > 0.75 mV & form flat), cholesterol (>220 mg/dL), sex female and young") + 
+    geom_text(aes(label = probability), size = 5,  vjust = -1) +
+    ylim(0, 1)+ theme_minimal()
+```
+
+```{r, fig.width=11, fig.align="center"}
+set.seed(0)
+prob.1<- cpquery(bl.tabu.1.fit, event = (target == "disease"),  evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "female" & age == "old"),method = "ls", n = 1000000)
+
+prob.2<- cpquery(bl.tabu.3.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "female" & age == "old" ),method = "ls", n = 1000000)
+
+prob.3<- cpquery(bl.hc.3.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "female"  & age == "old"),method = "ls", n = 1000000)
+
+prob.4<- cpquery(bl.expert.1.fit, event = (target == "disease"),  evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "female" & age == "old"),method = "ls", n = 1000000)
+
+prob.5<- cpquery(bl.expert.2.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & chol != "normal" & sex == "female" & age == "old" ),method = "ls", n = 1000000)
+
+network <- c("TBIC", "TAIC", "HAIC", "IND", "SM")
+probability <- c(prob.1, prob.2, prob.3, prob.4, prob.5)
+probability <- sapply(probability, round,3) 
+
+df <- data.frame(network, probability)
+
+g <- ggplot(df, aes(network, probability, fill = network))
+g + geom_bar(stat="identity", width = 0.5) + 
+      labs(title="Bayessian networks", 
+           subtitle="Heart damage based on ECG (oldpeak > 0.75 mV & slope flat), chol (>220 mg/dL) and old female") + 
+    geom_text(aes(label = probability), size = 5,  vjust = -1) +
+    ylim(0, 1)+ theme_minimal()
+```
+
+
+* Es interesante tmabién lo que pasa al incorporar la taquicardia, el nerviosismo del paciente causa de la ansidad puede alterar las pruebas y quizás disminuir el riesgo, no obstante habría que tomarlo con cautela, puede tratarse de una variable irrelevante ya que las personas se pueden poner nerviosas al llegar al hospital o creer que estan (independientemente de que lo estén) sufriendo un ataque cardiaco.
+```{r, fig.width=11, fig.align="center"}
+set.seed(0)
+prob.1 <- cpquery(bl.tabu.1.fit, event = (target == "disease"),  evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat"  & cp == "chest.pain" & exang == "angina" & thalach == "less.than.120.bpm"),method = "ls", n = 1000000)
+
+prob.2 <- cpquery(bl.tabu.3.fit, event = (target == "disease"),evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & cp == "chest.pain" & exang == "angina" & thalach == "less.than.120.bpm"),method = "ls", n = 1000000)
+
+prob.3 <- cpquery(bl.hc.3.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat"  & cp == "chest.pain" & exang == "angina" & thalach == "less.than.120.bpm"),method = "ls", n = 1000000)
+
+prob.4 <- cpquery(bl.expert.1.fit, event = (target == "disease"),  evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat"  & cp == "chest.pain" & exang == "angina" & thalach == "less.than.120.bpm"),method = "ls", n = 1000000)
+
+prob.5 <- cpquery(bl.expert.2.fit, event = (target == "disease"),evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & cp == "chest.pain" & exang == "angina" & thalach == "less.than.120.bpm"),method = "ls", n = 1000000)
+
+network <- c("TBIC", "TAIC", "HAIC", "IND", "SM")
+probability <- c(prob.1, prob.2, prob.3, prob.4, prob.5)
+probability <- sapply(probability, round,3) 
+
+df <- data.frame(network, probability)
+
+g <- ggplot(df, aes(network, probability, fill = network))
+g + geom_bar(stat="identity", width = 0.5) + 
+      labs(title="Bayessian networks", 
+           subtitle="Probability of heart damage based on electrocardiogram alterations (oldpeak > 0.75 mV & form flat), chest pain, angina and less than 120 bpm") + 
+    geom_text(aes(label = probability), size = 5,  vjust = -1) +
+    ylim(0, 1)+ theme_minimal()
+```
+
+```{r, fig.width=11, fig.align="center"}
+set.seed(0)
+prob.1 <- cpquery(bl.tabu.1.fit, event = (target == "disease"),  evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat"  & cp == "chest.pain" & exang == "angina" & thalach == "more.than.120.bpm"),method = "ls", n = 1000000)
+
+prob.2 <- cpquery(bl.tabu.3.fit, event = (target == "disease"),evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & cp == "chest.pain" & exang == "angina" & thalach == "more.than.120.bpm"),method = "ls", n = 1000000)
+
+prob.3 <- cpquery(bl.hc.3.fit, event = (target == "disease"), evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat"  & cp == "chest.pain" & exang == "angina" & thalach == "more.than.120.bpm"),method = "ls", n = 1000000)
+
+prob.4 <- cpquery(bl.expert.1.fit, event = (target == "disease"),  evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat"  & cp == "chest.pain" & exang == "angina" & thalach == "more.than.120.bpm"),method = "ls", n = 1000000)
+
+prob.5 <- cpquery(bl.expert.2.fit, event = (target == "disease"),evidence = (oldpeak == "more.than.0.75.mV"  & slope == "flat" & cp == "chest.pain" & exang == "angina" & thalach == "more.than.120.bpm"),method = "ls", n = 1000000)
+
+network <- c("TBIC", "TAIC", "HAIC", "IND", "SM")
+probability <- c(prob.1, prob.2, prob.3, prob.4, prob.5)
+probability <- sapply(probability, round,3) 
+
+df <- data.frame(network, probability)
+
+g <- ggplot(df, aes(network, probability, fill = network))
+g + geom_bar(stat="identity", width = 0.5) + 
+      labs(title="Bayessian networks", 
+           subtitle="Probability of heart damage based on electrocardiogram alterations (oldpeak > 0.75 mV & form flat), chest pain, angina and thachycardia") + 
+    geom_text(aes(label = probability), size = 5,  vjust = -1) +
+    ylim(0, 1)+ theme_minimal()
+```
+
+**CONCLUSIÓN:**Sin ninguna duda la red **IND** ha sido la que ha dado resultados más lógicos en base al conocimiento actual del tema, por lo tanto se usará esta red para la inferencia exacta.
+
+## INFERENCIA EXACTA
+
+En general las probabildiades obtenidas mediante este método han sido mucho más bajas.
+
+```{r}
+library(gRain)
+gr.net <- as.grain(bl.expert.1.fit)   # IND net
+gr.net.c<- compile(gr.net)
+gr.net.c
+```
+
+La probabilidad de observar una angina y daño cardiaco según el modelo es:
+```{r}
+nodes  <- c("target", "exang")
+evidence <- c("disease", "angina")
+gr.net.c <- setEvidence(object = gr.net.c, nodes = nodes,
+                        states = evidence)
+pEvidence(gr.net.c)
+gr.net.c <- retractEvidence(gr.net.c, nodes)
+```
+
+De observar dolor de pecho y daño cardiaco:
+
+```{r}
+nodes  <- c("target", "cp")
+evidence <- c("disease", "chest.pain")
+gr.net.c <- setEvidence(object = gr.net.c, nodes = nodes,
+                        states = evidence)
+pEvidence(gr.net.c)
+gr.net.c <- retractEvidence(gr.net.c, nodes)
+```
+
+
+
+
+Colesterol y daño cardiaco
+```{r}
+nodes  <- c("target", "chol")
+evidence <- c("disease", "normal")
+gr.net.c <- setEvidence(object = gr.net.c, nodes = nodes,
+                        states = evidence)
+chol.normal <- pEvidence(gr.net.c)
+gr.net.c <- retractEvidence(gr.net.c, nodes)
+chol.normal
+```
+
+```{r}
+nodes  <- c("target", "chol")
+evidence <- c("disease", "high")
+gr.net.c <- setEvidence(object = gr.net.c, nodes = nodes,
+                        states = evidence)
+chol.moderate <- pEvidence(gr.net.c)
+gr.net.c <- retractEvidence(gr.net.c, nodes)
+chol.moderate
+```
+
+```{r}
+nodes  <- c("target", "chol")
+evidence <- c("disease", "very.high")
+gr.net.c <- setEvidence(object = gr.net.c, nodes = nodes,
+                        states = evidence)
+chol.high <- pEvidence(gr.net.c)
+gr.net.c <- retractEvidence(gr.net.c, nodes)
+chol.high
+```
+Riesgo relativo de daño cardiaco cuando los niveles de colesterol están entre 220 y 300 mg/dL
+```{r}
+chol.moderate/chol.normal
+```
+Riesgo relativo de daño cardiaco cuando los niveles de colesterol son superiores a 300 mg/dL
+```{r}
+chol.high/chol.normal
+```
+
+Influencia del sexo.
+```{r}
+nodes  <- c("target", "sex")
+evidence <- c("disease", "male")
+gr.net.c <- setEvidence(object = gr.net.c, nodes = nodes,
+                        states = evidence)
+male.prob <- pEvidence(gr.net.c)
+gr.net.c <- retractEvidence(gr.net.c, nodes)
+male.prob
+```
+
+```{r}
+nodes  <- c("target", "sex")
+evidence <- c("disease", "female")
+gr.net.c <- setEvidence(object = gr.net.c, nodes = nodes,
+                        states = evidence)
+female.prob <- pEvidence(gr.net.c)
+gr.net.c <- retractEvidence(gr.net.c, nodes)
+female.prob
+```
+Riesgo relativo hombres / mujeres
+```{r}
+male.prob/female.prob
+```
+
+
+
+
+
+Para saber cual es el estado más probable de daño cardiaco cuando tenemos dolor de pecho y angina 
+```{r}
+disease <- querygrain(gr.net.c, type = "joint", nodes = c("exang", "cp", "target"))
+disease[,,cp="chest.pain"]
+```
+
+Con alteraciones en el electrocardiograma es más probable que haya daño en el corazón cuando tenemos un electrocardiograma con un pendiente plana en la onda ST y un depresión de dicho segmento de 0.75 mV.
+```{r}
+disease <- querygrain(gr.net.c, type = "joint", nodes = c("oldpeak", "slope", "target"))
+disease
+```
+
+Con colesterol alto y alteraciones en la variable *oldpeak* es interesante lo que sale.
+```{r}
+disease <- querygrain(gr.net.c, type = "joint", nodes = c("chol","oldpeak", "target"))
+disease
+```
+
+# RED FINAL
+
+```{r, message=FALSE}
+library(Rgraphviz)
+```
+
+
+```{r, fig.align="center", fig.width = 5, fig.height= 5}
+all.arcs <- as.data.frame(arcs(bl.expert.1))
+target.arcs <- as.matrix(all.arcs[all.arcs$from == "target" & all.arcs$to != "thalach",])
+
+hight <- list(nodes = c(node = "target"), fill = "red",lty = 5, textCol = "white", arcs = target.arcs, col = "red")
+pp <- graphviz.plot(bl.expert.1, highlight = hight, render = FALSE)
+nodeRenderInfo(pp) <- list(fill = c(exang = "orange", cp = "orange", oldpeak = "orange", slope = "orange")) 
+
+renderGraph(pp)
+```
+
+
+

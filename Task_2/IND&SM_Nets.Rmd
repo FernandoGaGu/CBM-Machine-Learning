@@ -1,0 +1,259 @@
+---
+title: "BayessianNet_2"
+output: html_document
+---
+
+```{r, message=FALSE}
+library(bnlearn)
+library(gRain)
+source('functions.R')
+data <- read.table("heart.csv", sep = ",", header = T)
+names <- names(data)
+names[1] <- c("age")
+colnames(data) <- names
+```
+
+Hay que discretizar con valores numéricos debido a las restricciones de **bnstruct**.
+```{r}
+data$sex[data$sex == 0] = 2 
+
+data$age[data$age < 60] = 1 
+data$age[data$age >= 60] = 2   
+
+data$chol[data$chol <= 220] = 1
+data$chol[data$chol > 220 & data$chol <=300 ] = 2
+data$chol[data$chol > 300] = 3
+
+data$trestbps[data$trestbps <= 130] = 1         
+data$trestbps[data$trestbps > 130 ] = 2       
+
+data$thalach[data$thalach <= 120] =1        
+data$thalach[data$thalach > 120 ] = 2         
+
+data$oldpeak[data$oldpeak <= 0.1] = "less.than.0.1.mV"           
+data$oldpeak[data$oldpeak > 0.1 & data$oldpeak <= 0.75 & data$oldpeak != "less.than.0.1.mV" ] = "0.1..0.75.mV"           
+data$oldpeak[data$oldpeak > 0.75 & data$oldpeak != "less.than.0.1.mV" & data$oldpeak != "0.1..0.75.mV" ] = "more.than.0.75.mV"            
+ 
+data$oldpeak[data$oldpeak == "less.than.0.1.mV"] = 1        
+data$oldpeak[data$oldpeak == "0.1..0.75.mV"] = 2    
+data$oldpeak[data$oldpeak == "more.than.0.75.mV"] = 3      
+
+data$cp[data$cp == 0 | data$cp == 3] = 1
+data$cp[data$cp == 2 | data$cp == 1] = 2
+
+
+data$fbs[data$fbs == 0] = 2                   
+data$fbs[data$fbs == 1] = 1                    
+
+data$exang[data$exang == 0] = as.integer(2)                    
+data$exang[data$exang == 1] = as.integer(1)                      
+
+data$slope <- data$slope + 1                                   
+
+
+data$target[data$target == 1] = 3
+data$target[data$target == 0] = 1             
+data$target[data$target == 3] = 2             
+
+data$ca <- NULL  
+data$thal <- NULL 
+data$restecg <- NULL
+data <- as.data.frame(sapply(data, as.numeric)) 
+summary(data)
+```
+
+
+
+# Estructura de la red
+
+## Estudio de la independencia 
+
+Función para realizar la prueba de independencia Chi-2:
+```{r, warning=FALSE}
+test.independence <- function(var.objetive, dataset, alpha){
+  for(column in names(dataset)){
+    if(column != var.objetive){
+      pvalue <- chisq.test(table(data[,var.objetive], data[, column]))
+      if(pvalue$p.value < alpha)
+        output <- paste("DEPENDENCE betwen: ",var.objetive, column, sep = ' & ')
+      else
+        output <- paste("INDEPENDENCE betwen: ",var.objetive, column, sep = ' & ')
+      print(output)
+      print(pvalue$p.value)
+    }
+  }
+}
+```
+
+* Test de independencia de la variable **age**: Dependencias con:
+  + Sexo
+  + Dolor de pecho
+  + Hipertensión
+  + Alteraciones en el segmento ST después del ejercicio
+  + Ataque cardiaco
+
+```{r, warning=FALSE}
+test.independence(var.objetive = "age", dataset = data, alpha = 0.05)
+```
+
+* Test de independencia de la variable **sex**: Dependencias con:
+  + Sexo
+  + Dolor en el pecho
+  + Colesterol
+  + Angina
+  + Ataque cardiaco
+
+```{r, warning=FALSE}
+test.independence(var.objetive = "sex", dataset = data, alpha = 0.05)
+```
+
+* Test de independencia de la variable **cp**: Dependencias con:
+  + Edad
+  + Sexo
+  + Taquicardia
+  + Angina
+  + Alteraciones en el segmento ST
+  + Alteraciones en la pendiente del segmento ST
+  + Ataque cardiaco
+
+```{r, warning=FALSE}
+test.independence(var.objetive = "cp", dataset = data, alpha = 0.05)
+```
+
+* Test de independencia de la variable **chol**: Dependencias con:
+  + Sexo
+```{r, warning=FALSE}
+test.independence(var.objetive = "chol", dataset = data, alpha = 0.05)
+```
+
+* Test de independencia de la variable **hipertensión (trestbps)**:  Dependencias con:
+  + Edad
+  + Alteraciones en el segmento ST
+```{r, warning=FALSE}
+test.independence(var.objetive = "trestbps", dataset = data, alpha = 0.05)
+```
+
+* Test de independencia de la variable **fbs**:  Independiente de todas las variables
+```{r, warning=FALSE}
+test.independence(var.objetive = "fbs", dataset = data, alpha = 0.05)
+```
+
+* Test de independencia de la variable **thalach**:  Dependencias con:
+  + Dolor en el pecho
+  + Angina
+  + Alteraciones en la pendiente ST
+  + Ataque cardiaco
+```{r, warning=FALSE}
+test.independence(var.objetive = "thalach", dataset = data, alpha = 0.05)
+```
+
+* Test de independencia de la variable **exang**:  Dependencias con:
+  + Sexo
+  + Dolor de pecho
+  + Taquicardia
+  + Alteraciones en el segmento ST
+  + Alteraciones en la pendiente del segmento ST
+  + Ataque cardiaco
+```{r, warning=FALSE}
+test.independence(var.objetive = "exang", dataset = data, alpha = 0.05)
+```
+
+* Test de independencia de la variable **oldpeak**:  Dependencias con:
+  + Edad
+  + Dolor de pecho
+  + Hipertensión
+  + Taquicardia
+  + Alteraciones en el segmento ST
+  + Alteraciones en la pendiente del segemento ST
+  + Ataque cardiaco
+```{r, warning=FALSE}
+test.independence(var.objetive = "oldpeak", dataset = data, alpha = 0.05)
+```
+
+* Test de independencia de la variable **slope**:  Dependencias con:
+  + Taquicardia
+  + Angina
+  + Alteraciones en el segmento ST
+  + Alteraciones en la pendiente del segmento ST
+  + Ataque cardiaco
+```{r, warning=FALSE}
+test.independence(var.objetive = "slope", dataset = data, alpha = 0.05)
+```
+
+* Test de independencia de la variable **Ataque cardiaco (target)**: Dependencias con:
+  + Edad
+  + Sexo
+  + Dolor de pecho
+  + Taquicardia
+  + Angina
+  + Alteraciones en el segmento ST
+  + Alteraciones en la pendiente del segmento ST
+```{r, warning=FALSE}
+test.independence(var.objetive = "target", dataset = data, alpha = 0.05)
+```
+
+## Construcción de las redes
+
+* Red desarrollada en base al estudio de la independencia:
+
+```{r}
+description.1 <- paste('[age][sex][thalach]',
+                       '[chol|age]',
+                       '[fbs|age]',
+                       '[trestbps|fbs]',
+                       '[target|age:thalach:sex]',
+                       '[cp|target:exang]',
+                       '[exang|target:oldpeak]',
+                       '[oldpeak|target]',
+                       '[slope|oldpeak:target]', sep = '')
+bl.heart.1 <- model2network(description.1)
+plot(bl.heart.1, highlight = list(nodes = "target"))
+```
+
+NOTA: La taquicardia puede considerarse a la vez una causa y una consecuencia. Causa en el sentido de que un incremento en la frecuencia cardiaca puede provocar un ataque cardiaco y consecuencia en el sentido de que cuando se da daño cardiaco puede disminuir la frecuencia cardiaca dada la ineficiencia del corazón originada por la lesión. **En la red será considerado una causa**.
+
+* Red desarrollada en base a un algoritmo completo (Silander-Myllymaki) que usa como *score* el *Bayesian Information Criterium*.
+
+Se puede ver que con este método algunas flechas no son coherentes, por lo que se seguirá esta estructura cambiando la dirección de algunas flechas
+```{r, message=FALSE}
+library(bnstruct)
+```
+
+
+```{r, warning=FALSE}
+dataset <- BNDataset(data = data,
+                     discreteness = rep(TRUE,length(names(data))),
+                     variables = names(data),
+                     node.sizes = c(2, 2, 2, 2, 3, 2, 2, 2, 3, 3, 2))
+```
+```{r, message=FALSE}
+imp.dataset <- impute(dataset)
+```
+```{r, message=FALSE}
+bl.heart.pre <- learn.network(imp.dataset,
+                              algo = "sm",
+                              scoring.func = "BIC",
+                              use.imputed.data = TRUE)
+```
+```{r}
+plot(bl.heart.pre)
+```
+
+Se elimino la relacción entre sexo y edad y se redigieron las flechas.
+```{r}
+description.2 <- paste('[fbs|sex]',
+                       '[chol|sex]',
+                       '[sex]',
+                       '[trestbps|fbs:sex:age]',
+                       '[age]',
+                       '[thalach|age:target:exang]',
+                       '[exang|age:target:oldpeak]',
+                       '[oldpeak|target:trestbps]',
+                       '[cp|target]',
+                       '[slope|trestbps:target]',
+                       '[target|age]',
+                        sep = '')
+
+bl.heart.2 <- model2network(description.2)
+plot(bl.heart.2, highlight = list(nodes = "target"))
+```
