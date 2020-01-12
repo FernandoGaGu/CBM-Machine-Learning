@@ -1,0 +1,336 @@
+---
+title: "Spatial Satistics"
+author: "Fernando García"
+date: "1/10/2020"
+output:
+  html_document: default
+  word_document: default
+---
+
+# Introducción
+
+Referencia de la imagen: *"The TibA Adhesin/Invasin from Enterotoxigenic Escherichia coli Is Self Recognizing and Induces Bacterial Aggregation and Biofilm Formation"*
+
+Asumimos que los puntos pueden tener cualquier localización en la ventana, en nuestro caso no hay ninguna limitación al respecto. El objetivo es estimar los parámetros de distribución de las diferentes bacterias.
+
+En los datos tenemos dos tipos de poblaciones bacterianas (*marks* = 2).
+
+```{r, message=FALSE }
+#install.packages("imager")
+#install.packages('spatstat')
+library(imager)
+library(spatstat)
+library(cowplot)
+library(ggplot2)
+```
+
+
+```{r, fig.align="center"}
+image <- load.image('./Bacterial_interaction.png')
+plot(image, main = "Original image")
+```
+
+```{r, fig.align="center"}
+image <- resize(image,round(width(image)/4),round(height(image)/4))
+plot(image,main="Low resolution") 
+```
+
+```{r}
+image
+```
+
+Pasar la imagen a un dataFrame.
+```{r}
+image.df <- as.data.frame(image)
+dim(image.df)
+```
+
+Selección de los puntos con mayor intensidad de acuerdo al color verde y rojo (RGB). Con esta técnica algunos puntos de la imagen original pueden quedar excluidos. Se han seleccionado aquellos que en el correspondiente canal tengan más de un 50% de intensidad y el resto de canales menos del 0.1.
+Se ha realizado un filtrado de los valores que en el canal 3 (azul) tiene una intensidad superior a 0.3
+```{r, message=FALSE}
+image.df$quality <- image.df$cc
+image.df[image.df$cc == 3 & image.df$value > 0.2, ]$quality = 0
+```
+
+```{r, fig.align="center"}
+spatial.points <- data.frame(x = image.df[image.df$value > 0.5  & (image.df$cc == 2 | image.df$cc == 1) & image.df$quality != 0, ]$x, 
+                             y = image.df[image.df$value > 0.5 & (image.df$cc == 2 | image.df$cc == 1) & image.df$quality != 0, ]$y,
+                             strain = image.df[image.df$value > 0.5  & (image.df$cc == 2 | image.df$cc == 1) & image.df$quality != 0, ]$cc)
+```
+
+```{r, fig.align="center"}
+p <- ggplot(spatial.points, aes(x=x, y=y)) + 
+  geom_point(aes(color = as.factor(strain)))  + theme_minimal() + theme(legend.title = element_blank()) +
+  scale_color_manual(values = c("#FF0000", "#04FF00"))
+p
+```
+
+Carga de los puntos con una ventana de dimensiones 112 x 112
+```{r, fig.align="center", warning=FALSE}
+pattern <- ppp(spatial.points$x, spatial.points$y, c(0, 112), c(0, 112))
+plot(pattern, main = NULL)
+```
+
+```{r}
+summary(pattern)
+pattern <- rescale(pattern, 10) # Rescale to lower distance
+summary(pattern)
+```
+
+# Intensidad
+
+```{r}
+intensity(pattern)
+```
+
+Error estandar
+```{r}
+sqrt(intensity(pattern)/area(Window(pattern)))
+```
+
+## *Quadrat count*
+
+```{r}
+Q <- quadratcount(pattern, nx=6, ny=6)
+Q
+```
+
+```{r, fig.align="center"}
+plot(intensity(Q, image = TRUE), main = "Intensity per quadrant GFP + RFP")
+```
+
+La hipótesis nula es que el patrón se distribuye de forma homogénea. En nuestro caso podemos rechazar dicha hipótesis de forma que aceptamos que nuestros datos no son homogéneos.
+```{r}
+quadrat.test(pattern, nx=6, ny=6)
+```
+
+Volviendo a realizar el test con un número menor de cuadrantes tenemos que se acepta la hipótesis nula.
+```{r}
+quadrat.test(pattern, nx = 5, ny = 5)
+```
+
+```{r}
+quadrat.test(pattern, nx = 4, ny = 4)
+```
+
+## *Kernel density*
+
+Se trata de una estimación no paramétrica de la función de intensidad.
+```{r, fig.align="center"}
+d <- density(pattern, edge = TRUE, kernel="gaussian")
+plot(d, main = "Gaussian kernel density stimation GFP + RFP")
+```
+
+
+# Dependencia entre puntos
+
+Este modelo asume que el **proceso es estacionario** (*proceso estocástico con una distribución de probabilidad relativamente constante*).
+```{r, fig.align="center", fig.width=8, fig.height=8}
+rescaled.pattern <- rescale(pattern, 10)
+fryplot(rescaled.pattern, main = "Fry GFP + RFP")
+```
+
+La función empírica K asume asume de nuevo un proceso estacionario.
+```{r, fig.align="center"}
+plot(Kest(pattern), main="K function")
+```
+
+Cada función corresponde a diferentes correcciones de los ejes:
+* theo   Kpois(r)       theoretical Poisson K(r)              
+* border Kbord(r)  border-corrected estimate of K(r)     
+* trans  Ktrans(r) translation-corrected estimate of K(r)
+* iso    Kiso(r)   isotropic-corrected estimate of K(r) 
+
+Transofrmando la función K a un alinea recta mediante la función L de Besag obtenemos la siguiente gráfica que nos permite apreciar mejor las desviaciones. 
+La función aplica las mismas correcciones que aplicaba antes.
+```{r, fig.align="center"}
+plot(Lest(pattern), main = "Besag’s L-function")
+```
+
+
+La función de correlacción por pares (*pair correlation function*) considera en el numerador la probabilidad de observar un par de puntos separados por una distancia r, dividida por esa misma probabilidad para un proceso estocástico.
+En este caso se puede ver que hay un claro patrón de *clustering* dentro de una pequeña distancia. Esto puede ser indicativo de posibles agrupaciones entre un número reducido de bacterias.
+```{r, fig.align="center"}
+plot(pcf(pattern), main = NULL)
+```
+
+
+Se han seleccionado 99 simulaciones, de esta forma, la hipótesis nula es rechazada con un valor de alfa = 0.01. 
+```{r, fig.align="center",  }
+a <- capture.output(plot(envelope(pattern, Kest, nsim = 99), main = NULL, legend = FALSE))
+a <- capture.output(plot(envelope(pattern, Lest, nsim = 99), main = NULL, legend = FALSE))
+```
+
+
+# Espaciado entre los puntos
+
+La información referente al espaciado entre los puntos proporciona información complementaria al estudio de la correlación realizado anteriormente.
+La función *empty-space* (función F) asumiendo de nuevo un estado estacionario corresponde a la función de distribución empírica de las distancias observaas respecto al espacio vacio de m localizaciones. En este caso tenemos una distancia acumulativa.  De nuevo la librería *spatstats* aplica diferentes correcciones. 
+```{r, fig.align="center"}
+plot(Fest(pattern), main = "F-function (point-to-event)")
+```
+
+```{r, fig.align="center"}
+a <- capture.output(plot(envelope(pattern, Fest, nsim = 99), main = NULL, legend = FALSE))
+```
+
+La función G (*Nearest neighbour distances o event-to-event*) de nuevo asumiendo un estado estacionario computa la probabildiad de que un punto tenga una distancia menor, mayor o igual a un proceso estacionario. 
+```{r, fig.align="center"}
+plot(Gest(pattern), main = "G-function (event-to-event)")
+```
+```{r, fig.align="center"}
+a <- capture.output(plot(envelope(pattern, Gest, nsim = 99), main = NULL, legend = FALSE))
+```
+
+La función J es una combinación de las funciones F y G.
+```{r, fig.align="center"}
+plot(Jest(pattern), main = "J-function")
+```
+
+
+# **Considerando el patrón no homogéneo**
+
+En este caso suponiendo que los datos no tengan un patrón homogéneo de intensidad.
+```{r, fig.align="center"}
+plot(Linhom(pattern), main = "L-function")
+plot(Jinhom(pattern), main = "J-function")
+plot(Ginhom(pattern), main = "G-function")
+plot(Finhom(pattern), main = "F-function")
+```
+
+```{r}
+a <- capture.output(plot(envelope(pattern, Linhom, nsim = 99), main = "L-function", legend = FALSE))
+a <- capture.output(plot(envelope(pattern, Jinhom, nsim = 99), main = "J-function", legend = FALSE))
+a <- capture.output(plot(envelope(pattern, Ginhom, nsim = 99), main = "G-function", legend = FALSE))
+a <- capture.output(plot(envelope(pattern, Finhom, nsim = 99), main = "F-function", legend = FALSE))
+```
+
+
+# Análisis del patrón de las diferentes cepas bacterianas independientemenete
+
+La metodología seguida ha sido la misma pero aplicada de forma independiente a cada una de las bacterias.
+```{r}
+green.data <- data.frame(x = image.df[image.df$value > 0.5  & image.df$cc == 2 & image.df$quality != 0, ]$x, 
+                         y = image.df[image.df$value > 0.5 & image.df$cc == 2  & image.df$quality != 0, ]$y,
+                         strain = image.df[image.df$value > 0.5  & image.df$cc == 2 & image.df$quality != 0, ]$cc)
+
+red.data <- data.frame(x = image.df[image.df$value > 0.5  & image.df$cc == 1 & image.df$quality != 0, ]$x, 
+                       y = image.df[image.df$value > 0.5 & image.df$cc == 1 & image.df$quality != 0, ]$y,
+                       strain = image.df[image.df$value > 0.5  & image.df$cc == 1 & image.df$quality != 0, ]$cc)
+```
+
+```{r, fig.align="center", fig.width=8, fig.height=3}
+p.green <- ggplot(green.data, aes(x=x, y=y)) + 
+  geom_point(aes(color = as.factor(strain)))  + theme_minimal() + theme(legend.title = element_blank()) +
+  scale_color_manual(values = c("#04FF00"))
+p.red <- ggplot(red.data, aes(x=x, y=y)) + 
+  geom_point(aes(color = as.factor(strain)))  + theme_minimal() + theme(legend.title = element_blank()) +
+  scale_color_manual(values = c("#FF0000"))
+plot_grid(p, p.green, p.red, nrow = 1, labels = c("A", "B", "C"))
+```
+
+
+## Análisis de la intensidad
+
+```{r}
+pattern.green <- ppp(green.data$x, green.data$y, c(0, 112), c(0, 112))
+pattern.green <- rescale(pattern.green, 10) 
+pattern.red <- ppp(red.data$x, red.data$y, c(0, 112), c(0, 112))
+pattern.red <- rescale(pattern.red, 10) 
+```
+
+```{r}
+intensity(pattern.green)
+sqrt(intensity(pattern.green)/area(Window(pattern.green)))
+```
+
+```{r}
+intensity(pattern.red)
+sqrt(intensity(pattern.red)/area(Window(pattern.red)))
+```
+
+```{r}
+Q.green <- quadratcount(pattern.green, nx=6, ny=6)
+Q.red <- quadratcount(pattern.red, nx=6, ny=6)
+quadrat.test(pattern.green, nx = 6, ny = 6)
+quadrat.test(pattern.red, nx = 4, ny = 4)
+```
+
+```{r, fig.align="center"}
+plot(intensity(Q.green, image = TRUE), main = "Intensity per quadrant in GFP")
+```
+
+```{r, fig.align="center"}
+plot(intensity(Q.red, image = TRUE), main = "Intensity per quadrant in RFP")
+```
+
+```{r, fig.align="center"}
+plot(density(pattern.green, edge = TRUE, kernel="gaussian"), 
+     main = "Gaussian kernel density stimation in GFP")
+```
+
+```{r, fig.align="center"}
+plot(density(pattern.red, edge = TRUE, kernel="gaussian"), 
+     main = "Gaussian kernel density stimation in RFP")
+```
+
+```{r, fig.align="center", fig.width=8, fig.height=8}
+fryplot(pattern.green, main = "Fry GFP")
+```
+
+```{r, fig.align="center", fig.width=8, fig.height=8}
+fryplot(pattern.red, main = "Fry RFP")
+```
+
+## Análisis de la dependencia
+
+```{r, fig.align="center"}
+plot(Kest(pattern.green), main="K function GFP")
+plot(Lest(pattern.green), main="L function GFP")
+```
+
+```{r, fig.align="center"}
+plot(Kest(pattern.red), main="K function RFP")
+plot(Lest(pattern.red), main="L function RFP")
+```
+
+```{r, fig.align="center"}
+plot(pcf(pattern.green), main = "GFP")
+plot(pcf(pattern.red), main = "RFP")
+```
+
+```{r, fig.align="center"}
+a <- capture.output(plot(envelope(pattern.green, Kest, nsim = 99), main = "K-function GFP", legend = FALSE))
+a <- capture.output(plot(envelope(pattern.green, Lest, nsim = 99), main = "L-function GFP", legend = FALSE))
+```
+
+```{r, fig.align="center"}
+a <- capture.output(plot(envelope(pattern.red, Kest, nsim = 99), main = "K-function RFP", legend = FALSE))
+a <- capture.output(plot(envelope(pattern.red, Lest, nsim = 99), main = "L-function RFP", legend = FALSE))
+```
+
+# Análisis de la distribución espacial
+
+```{r, fig.align="center"}
+plot(Fest(pattern.green), main = "F-function GFP")
+plot(Gest(pattern.green), main = "G-function GFP")
+plot(Jest(pattern.green), main = "J-function GFP")
+```
+
+```{r, fig.align="center"}
+plot(Fest(pattern.red), main = "F-function RFP")
+plot(Gest(pattern.red), main = "G-function RFP")
+plot(Jest(pattern.red), main = "J-function RFP")
+```
+
+```{r, fig.align="center"}
+a <- capture.output(plot(envelope(pattern.green, Fest, nsim = 99), main = "F-function GFP"))
+a <- capture.output(plot(envelope(pattern.green, Gest, nsim = 99), main = "G-function GFP"))
+a <- capture.output(plot(envelope(pattern.green, Jest, nsim = 99), main = "J-function GFP"))
+```
+
+```{r, fig.align="center"}
+a <- capture.output(plot(envelope(pattern.red, Fest, nsim = 99), main = "F-function RFP"))
+a <- capture.output(plot(envelope(pattern.red, Gest, nsim = 99), main = "G-function RFP"))
+a <- capture.output(plot(envelope(pattern.red, Jest, nsim = 99), main = "J-function RFP"))
+```
